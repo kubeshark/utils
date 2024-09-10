@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/rs/zerolog/log"
 )
 
 type Request struct {
@@ -88,7 +87,6 @@ func GetDSN(ctx context.Context, service, version string) (string, error) {
 func getDSNEndpoint() string {
 	apiUrl, ok := os.LookupEnv("KUBESHARK_CLOUD_API_URL")
 	if !ok {
-		log.Info().Msg("KUBESHARK_CLOUD_API_URL wasn't found. Defaulting to https://api.kubeshark.co")
 		apiUrl = "https://api.kubeshark.co"
 	}
 
