@@ -26,6 +26,15 @@ func IsSentryEnabled() bool {
 	return os.Getenv("SENTRY_ENABLED") == "true"
 }
 
+func Environment() string {
+	sentryEnv := "undefined"
+	if env, ok := os.LookupEnv("SENTRY_ENVIRONMENT"); ok {
+		sentryEnv = env
+	}
+
+	return sentryEnv
+}
+
 func GetDSN(ctx context.Context, service, version string) (string, error) {
 
 	retryClient := retryablehttp.NewClient()
