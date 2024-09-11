@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -82,6 +83,16 @@ func GetDSN(ctx context.Context, service, version string) (string, error) {
 	}
 
 	return dsnResp.DSN, nil
+}
+
+func AddTags(tags map[string]string) {
+	for k, v := range tags {
+		if v != "" {
+			sentry.ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetTag(k, v)
+			})
+		}
+	}
 }
 
 func getDSNEndpoint() string {
