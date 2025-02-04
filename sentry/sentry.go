@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/hashicorp/go-retryablehttp"
@@ -20,6 +21,35 @@ type Request struct {
 
 type DSNResponse struct {
 	DSN string `json:"dsn"`
+}
+
+type Writer struct {
+	mu     sync.RWMutex
+	active bool
+	writer io.Writer
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		writer: w,
+	}
+}
+
+func (pw *Writer) Write(p []byte) (int, error) {
+	pw.mu.RLock()
+	defer pw.mu.RUnlock()
+
+	if !pw.active {
+		// Drop the log without error
+		return len(p), nil
+	}
+	return pw.writer.Write(p)
+}
+
+func (pw *Writer) Activate() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.active = true
 }
 
 func IsSentryEnabled() bool {
