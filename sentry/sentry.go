@@ -12,6 +12,7 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/rs/zerolog"
 )
 
 type Request struct {
@@ -24,14 +25,16 @@ type DSNResponse struct {
 }
 
 type Writer struct {
-	mu     sync.RWMutex
-	active bool
-	writer io.Writer
+	mu          sync.RWMutex
+	active      bool
+	writer      io.Writer
+	targetLevel zerolog.Level
 }
 
-func NewWriter(w io.Writer) *Writer {
+func NewWriter(w io.Writer, level zerolog.Level) *Writer {
 	return &Writer{
-		writer: w,
+		writer:      w,
+		targetLevel: level,
 	}
 }
 
@@ -40,10 +43,20 @@ func (pw *Writer) Write(p []byte) (int, error) {
 	defer pw.mu.RUnlock()
 
 	if !pw.active {
-		// Drop the log without error
 		return len(p), nil
 	}
-	return pw.writer.Write(p)
+
+	var entry struct {
+		Level zerolog.Level `json:"level"`
+	}
+	if err := json.Unmarshal(p, &entry); err != nil {
+		return len(p), nil
+	}
+
+	if entry.Level <= pw.targetLevel {
+		return pw.writer.Write(p)
+	}
+	return len(p), nil
 }
 
 func (pw *Writer) Activate() {
