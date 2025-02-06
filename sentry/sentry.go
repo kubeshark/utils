@@ -131,7 +131,7 @@ func GetDSN(ctx context.Context, service, version string) (string, error) {
 func AddTags(tags map[string]string) {
 	for k, v := range tags {
 		if v != "" {
-			sentry.ConfigureScope(func(scope *sentry.Scope) {
+			sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
 				scope.SetTag(k, v)
 			})
 		}
