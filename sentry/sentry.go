@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/rs/zerolog"
 )
 
 type Request struct {
@@ -20,6 +22,47 @@ type Request struct {
 
 type DSNResponse struct {
 	DSN string `json:"dsn"`
+}
+
+type Writer struct {
+	mu          sync.RWMutex
+	active      bool
+	writer      io.Writer
+	targetLevel zerolog.Level
+}
+
+func NewWriter(w io.Writer, level zerolog.Level) *Writer {
+	return &Writer{
+		writer:      w,
+		targetLevel: level,
+	}
+}
+
+func (pw *Writer) Write(p []byte) (int, error) {
+	pw.mu.RLock()
+	defer pw.mu.RUnlock()
+
+	if !pw.active {
+		return len(p), nil
+	}
+
+	var entry struct {
+		Level zerolog.Level `json:"level"`
+	}
+	if err := json.Unmarshal(p, &entry); err != nil {
+		return len(p), nil
+	}
+
+	if entry.Level <= pw.targetLevel {
+		return pw.writer.Write(p)
+	}
+	return len(p), nil
+}
+
+func (pw *Writer) Activate() {
+	pw.mu.Lock()
+	defer pw.mu.Unlock()
+	pw.active = true
 }
 
 func IsSentryEnabled() bool {
@@ -86,13 +129,13 @@ func GetDSN(ctx context.Context, service, version string) (string, error) {
 }
 
 func AddTags(tags map[string]string) {
-	for k, v := range tags {
-		if v != "" {
-			sentry.ConfigureScope(func(scope *sentry.Scope) {
+	sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
+		for k, v := range tags {
+			if v != "" {
 				scope.SetTag(k, v)
-			})
+			}
 		}
-	}
+	})
 }
 
 func getDSNEndpoint() string {
