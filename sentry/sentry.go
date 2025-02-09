@@ -136,6 +136,10 @@ func GetDSN(ctx context.Context, service, version string) (string, error) {
 	return dsnResp.DSN, nil
 }
 
+func (w *Writer) IsActive() bool {
+	return w.active
+}
+
 func AddTags(tags map[string]string) {
 	sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
 		for k, v := range tags {
