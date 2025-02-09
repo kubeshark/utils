@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	ENV_SENTRY_ENABLED     = "SENTRY_ENABLED"
-	ENV_SENTRY_ENVIRONMENT = "SENTRY_ENVIRONMENT"
-	ENV_SENTRY_ACTIVE      = "SENTRY_ACTIVE"
-	ENV_SENTRY_EMAIL       = "SENTRY_EMAIL"
-	ENV_SENTRY_CLUSTER_ID  = "SENTRY_CLUSTER_ID"
+	SENTRY_ENABLED     = "SENTRY_ENABLED"
+	SENTRY_ENVIRONMENT = "SENTRY_ENVIRONMENT"
+	SENTRY_ACTIVE      = "SENTRY_ACTIVE"
+	SENTRY_EMAIL       = "SENTRY_EMAIL"
+	SENTRY_CLUSTER_ID  = "SENTRY_CLUSTER_ID"
 )
 
 type Request struct {
@@ -74,12 +74,12 @@ func (pw *Writer) Activate() {
 }
 
 func IsSentryEnabled() bool {
-	return os.Getenv(ENV_SENTRY_ENABLED) == "true"
+	return os.Getenv(SENTRY_ENABLED) == "true"
 }
 
 func Environment() string {
 	sentryEnv := "undefined"
-	if env, ok := os.LookupEnv(ENV_SENTRY_ENVIRONMENT); ok {
+	if env, ok := os.LookupEnv(SENTRY_ENVIRONMENT); ok {
 		sentryEnv = env
 	}
 
