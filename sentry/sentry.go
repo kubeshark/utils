@@ -140,6 +140,12 @@ func (w *Writer) IsActive() bool {
 	return w.active
 }
 
+func (w *Writer) Deactivate() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.active = false
+}
+
 func AddTags(tags map[string]string) {
 	sentry.CurrentHub().ConfigureScope(func(scope *sentry.Scope) {
 		for k, v := range tags {
