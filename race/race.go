@@ -42,7 +42,7 @@ func WatchRaceLogs() {
 			msg = strings.TrimSuffix(msg, logSeparator)
 			msg = strings.TrimSpace(msg)
 			if msg != "" {
-				log.Error().Str("type", "race").Msg(msg)
+				log.Error().Str("type", "race").Msg(redact(msg))
 			}
 		}
 
