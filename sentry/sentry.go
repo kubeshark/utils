@@ -156,11 +156,11 @@ func AddTags(tags map[string]string) {
 	})
 }
 
-func getDSNEndpoint() string {
-	apiUrl, ok := os.LookupEnv("KUBESHARK_CLOUD_API_URL")
-	if !ok {
-		apiUrl = "https://api.kubeshark.co"
-	}
+const (
+	DEFAULT_CLOUD_API_URL = "https://api.kubehq.com"
+)
 
+func getDSNEndpoint() string {
+	apiUrl := DEFAULT_CLOUD_API_URL
 	return fmt.Sprintf("%s/sentry", apiUrl)
 }
