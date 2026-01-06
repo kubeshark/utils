@@ -1,0 +1,117 @@
+diff --git a/pkg/baseentrystore/badger.go b/pkg/baseentrystore/badger.go
+index da5bc7a4..2ad4e357 100644
+--- a/pkg/baseentrystore/badger.go
++++ b/pkg/baseentrystore/badger.go
+@@ -568,14 +568,9 @@ func (s *baseEntryStore) DeleteBaseEntry(ctx context.Context, entryId []byte) er
+ 			return fmt.Errorf("failed to delete base entry: %w", err)
+ 		}
+ 
+-		// Delete the cleanup time index (if we have timestamp)
+-		if !entryTimestamp.IsZero() {
+-			cleanupKey := timeIndexCleanupKey(entryTimestamp, entryId)
+-			if err := txn.Delete(cleanupKey); err != nil && err != badger.ErrKeyNotFound {
+-				return fmt.Errorf("failed to delete cleanup time index: %w", err)
+-			}
+-		} else {
+-			log.Fatal().Str("entryId", entryIdHex).Msg("entryTimestamp is zero")
++		cleanupKey := timeIndexCleanupKey(entryTimestamp, entryId)
++		if err := txn.Delete(cleanupKey); err != nil && err != badger.ErrKeyNotFound {
++			return fmt.Errorf("failed to delete cleanup time index: %w", err)
+ 		}
+ 
+ 		// Delete all payload chunks
+@@ -603,14 +598,13 @@ func (s *baseEntryStore) DeleteBaseEntry(ctx context.Context, entryId []byte) er
+ // deleteChunksByPrefix deletes all chunks with the given prefix within a transaction
+ func (s *baseEntryStore) deleteChunksByPrefix(ctx context.Context, txn *badger.Txn, prefix string) error {
+ 	opts := badger.DefaultIteratorOptions
+-	opts.PrefetchValues = false
++	opts.PrefetchValues = false // We only need keys for deletion
+ 	it := txn.NewIterator(opts)
+ 	defer it.Close()
+ 
+ 	prefixBytes := []byte(prefix)
+ 
+-	// Collect all keys to delete first (to avoid iterator invalidation during deletion)
+-	var keysToDelete [][]byte
++	// Delete keys directly during iteration
+ 	for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
+ 		select {
+ 		case <-ctx.Done():
+@@ -619,11 +613,6 @@ func (s *baseEntryStore) deleteChunksByPrefix(ctx context.Context, txn *badger.T
+ 		}
+ 
+ 		key := it.Item().Key()
+-		keysToDelete = append(keysToDelete, append([]byte(nil), key...))
+-	}
+-
+-	// Delete all collected keys
+-	for _, key := range keysToDelete {
+ 		if err := txn.Delete(key); err != nil && err != badger.ErrKeyNotFound {
+ 			return fmt.Errorf("failed to delete chunk key %s: %w", string(key), err)
+ 		}
+diff --git a/pkg/baseentrystore/badger_test.go b/pkg/baseentrystore/badger_test.go
+index d198337a..1cded6cb 100644
+--- a/pkg/baseentrystore/badger_test.go
++++ b/pkg/baseentrystore/badger_test.go
+@@ -634,7 +634,6 @@ func TestDeleteBaseEntryWithChunks(t *testing.T) {
+ 	for i := range largePayload {
+ 		largePayload[i] = byte('A' + (i % 26))
+ 	}
+-
+ 	err = store.AddPayload(ctx, entryId, 1, largePayload)
+ 	if err != nil {
+ 		t.Fatalf("Failed to add large payload: %v", err)
+@@ -645,7 +644,6 @@ func TestDeleteBaseEntryWithChunks(t *testing.T) {
+ 	for i := range largePcap {
+ 		largePcap[i] = byte('0' + (i % 10))
+ 	}
+-
+ 	err = store.AddPcap(ctx, entryId, largePcap)
+ 	if err != nil {
+ 		t.Fatalf("Failed to add large PCAP: %v", err)
+@@ -662,38 +660,27 @@ func TestDeleteBaseEntryWithChunks(t *testing.T) {
+ 		t.Fatalf("Failed to load PCAP before deletion: %v", err)
+ 	}
+ 
+-	// Delete the entry (safe non-atomic - should delete all chunks eventually)
++	// Delete the entry (now synchronous - deletes everything atomically)
+ 	err = store.DeleteBaseEntry(ctx, entryId)
+ 	if err != nil {
+ 		t.Fatalf("Failed to delete base entry: %v", err)
+ 	}
+ 
+-	// Allow time for async chunk cleanup
+-	time.Sleep(200 * time.Millisecond)
+-
+ 	// Verify base entry is gone immediately
+ 	_, err = store.LoadBaseEntry(ctx, entryId)
+ 	if err == nil {
+ 		t.Error("Expected error loading deleted base entry, got nil")
+ 	}
+ 
+-	// Verify chunks are eventually gone (with retry logic for async cleanup)
+-	var payloadErr, pcapErr error
+-	for i := 0; i < 15; i++ {
+-		_, payloadErr = store.LoadPayload(ctx, entryId, 1, 0, -1)
+-		_, pcapErr = store.LoadPcap(ctx, entryId, 0, -1)
+-
+-		if payloadErr != nil && pcapErr != nil {
+-			break // Both are cleaned up
+-		}
+-		time.Sleep(30 * time.Millisecond)
+-	}
+-
+-	if payloadErr == nil {
++	// Verify payload chunks are gone immediately (no async cleanup needed)
++	_, err = store.LoadPayload(ctx, entryId, 1, 0, -1)
++	if err == nil {
+ 		t.Error("Expected error loading deleted payload chunks, got nil")
+ 	}
+ 
+-	if pcapErr == nil {
++	// Verify PCAP chunks are gone immediately (no async cleanup needed)
++	_, err = store.LoadPcap(ctx, entryId, 0, -1)
++	if err == nil {
+ 		t.Error("Expected error loading deleted PCAP chunks, got nil")
+ 	}
+ }
