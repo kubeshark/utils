@@ -87,7 +87,6 @@ func Environment() string {
 }
 
 func GetDSN(ctx context.Context, service, version string) (string, error) {
-
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 3 // Max retry attempts
 
@@ -157,7 +156,7 @@ func AddTags(tags map[string]string) {
 }
 
 const (
-	DEFAULT_CLOUD_API_URL = "https://api.kubehq.com"
+	DEFAULT_CLOUD_API_URL = "https://api.kubeshark.com"
 )
 
 func getDSNEndpoint() string {
